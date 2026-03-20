@@ -141,6 +141,18 @@
       </div>
     </section>
 
+    <!-- ---- Topic search ---- -->
+    <section class="control-section">
+      <label for="query-input">Topic search <span class="label-optional">(optional)</span></label>
+      <div class="query-wrap">
+        <input id="query-input" type="text"
+               placeholder="e.g. machine learning, algorithms, writing…"
+               autocomplete="off" spellcheck="false" />
+        <button id="btn-query-clear" class="btn-query-clear" title="Clear" hidden>&#10005;</button>
+      </div>
+      <p class="query-hint">Ranks results by BM25 text relevance + proximity when filled in.</p>
+    </section>
+
     <!-- ---- CTA ---- -->
     <section class="control-section">
       <button id="btn-search" class="btn btn-primary" disabled>

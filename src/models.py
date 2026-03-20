@@ -34,3 +34,4 @@ class RankedResult:
     distance_m: float
     time_score: float
     dist_score: float
+    text_score: float = 0.0

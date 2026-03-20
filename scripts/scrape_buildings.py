@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-scrape_buildings.py – UCI Campus Building Location Scraper
+scrape_buildings.py - UCI Campus Building Location Scraper
 
 Fetches building coordinates for the UCI campus from two sources:
   1. OpenStreetMap Overpass API  (live, requires internet)
   2. A curated hardcoded fallback table (always available)
 
 Usage:
-  python scripts/scrape_buildings.py              # merge Overpass + fallback → data/buildings.csv
+  python scripts/scrape_buildings.py              # merge Overpass + fallback -> data/buildings.csv
   python scripts/scrape_buildings.py --fallback   # use fallback table only (no network needed)
   python scripts/scrape_buildings.py --out PATH   # write to a custom CSV path
   python scripts/scrape_buildings.py --show       # print result table, don't write
@@ -19,7 +19,6 @@ import sys
 import time
 from pathlib import Path
 
-# ── Overpass API (OpenStreetMap) ─────────────────────────────────────────────
 try:
     import requests
     _HAS_REQUESTS = True
@@ -31,9 +30,8 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 # Bounding box that covers the entire UCI main campus
 UCI_BBOX = (33.628, -117.862, 33.662, -117.825)   # south, west, north, east
 
-# ── Name → abbreviation mapping ──────────────────────────────────────────────
 # Keys are substrings that appear in OSM building names; values are building codes.
-# Longer / more specific strings should appear FIRST so they match before shorter ones.
+# Longer / more specific strings should appear first so they match before shorter ones.
 NAME_TO_CODE: dict[str, str] = {
     # Engineering
     "Interdisciplinary Science and Engineering": "ISEB",
@@ -100,11 +98,11 @@ NAME_TO_CODE: dict[str, str] = {
     "Medical Arts":                              "MAB",
 }
 
-# ── Curated fallback table ────────────────────────────────────────────────────
+# Curated fallback table
 # Source: UCI campus maps, official building pages, and cross-referenced coordinates.
-# Format: code → (name, lat, lon)
+# Format: code -> (name, lat, lon)
 FALLBACK: dict[str, tuple[str, float, float]] = {
-    # ── Mathematics / Physical Sciences ──────────────────────────────────────
+    # Mathematics / Physical Sciences
     "RH":   ("Rowland Hall",                              33.64450, -117.84410),
     "PSLH": ("Physical Sciences Lecture Hall",            33.64340, -117.84395),
     "PSCB": ("Physical Sciences Classroom Building",      33.64330, -117.84515),
@@ -113,7 +111,7 @@ FALLBACK: dict[str, tuple[str, float, float]] = {
     "FRH":  ("Frederick Reines Hall",                     33.64130, -117.84540),
     "MSTB": ("Multipurpose Science and Technology Bldg",  33.64200, -117.84440),
     "BS3":  ("Biological Sciences 3",                     33.64110, -117.84360),
-    # ── Engineering ──────────────────────────────────────────────────────────
+    # Engineering
     "ET":   ("Engineering Tower",                         33.64470, -117.84110),
     "EH":   ("Engineering Hall",                          33.64360, -117.84140),
     "EG":   ("Engineering Gateway",                       33.64323, -117.84036),
@@ -123,10 +121,10 @@ FALLBACK: dict[str, tuple[str, float, float]] = {
     "SE":   ("Science Engineering",                       33.64480, -117.84220),
     "SE2":  ("Science Engineering 2",                     33.64440, -117.83960),
     "ISEB": ("Interdisciplinary Science & Engineering",   33.64280, -117.84400),
-    # ── Computer / Information Science ───────────────────────────────────────
+    # Computer / Information Science
     "DBH":  ("Donald Bren Hall",                          33.64320, -117.84190),
     "ICS":  ("Information and Computer Science 1",        33.64420, -117.84180),
-    # ── Social Sciences ───────────────────────────────────────────────────────
+    # Social Sciences
     "SSL":  ("Social Science Lab",                        33.64590, -117.84000),
     "SSH":  ("Social Science Hall",                       33.64620, -117.84010),
     "SST":  ("Social Science Tower",                      33.64650, -117.84010),
@@ -139,21 +137,21 @@ FALLBACK: dict[str, tuple[str, float, float]] = {
     "SBSG": ("Social & Behavioral Sciences Gateway",      33.64750, -117.84080),
     "KH":   ("Krieger Hall",                              33.64560, -117.84290),
     "SCS":  ("Social Sciences Computing Suite",           33.64640, -117.84030),
-    # ── Humanities ───────────────────────────────────────────────────────────
+    # Humanities
     "HG":   ("Humanities Gateway",                        33.64830, -117.84470),
     "HH":   ("Humanities Hall",                           33.64730, -117.84400),
     "HHCR": ("Humanities Hall Conference Room",           33.64730, -117.84400),
     "HIB":  ("Humanities Instructional Building",         33.64790, -117.84410),
     "HICF": ("Humanities Instructional Complex F",        33.64810, -117.84370),
     "HSLH": ("Howard Schneiderman Lecture Hall",          33.64550, -117.84470),
-    # ── Arts ─────────────────────────────────────────────────────────────────
+    # Arts
     "DRA":  ("Drama",                                     33.64920, -117.84320),
     "MH":   ("Music Hall",                                33.64870, -117.84360),
     "ART":  ("Studio Arts",                               33.64960, -117.84280),
     "CAC":  ("Contemporary Arts Center",                  33.64990, -117.84410),
     "WSH":  ("Winifred Smith Hall",                       33.65080, -117.84330),
     "MPAA": ("Mesa Parking & Arts Annex",                 33.64850, -117.84190),
-    # ── Law / Business / Education ────────────────────────────────────────────
+    # Law / Business / Education
     "LAW":  ("School of Law",                             33.65020, -117.84020),
     "PCB":  ("Paul Merage School of Business",            33.65190, -117.84220),
     "EDUC": ("Education Building",                        33.64870, -117.84090),
@@ -161,7 +159,7 @@ FALLBACK: dict[str, tuple[str, float, float]] = {
     "COHS": ("College of Health Sciences",                33.64190, -117.84300),
     "MAB":  ("Medical Academic Building",                 33.64120, -117.84350),
     "CRH":  ("Crystal Cove Auditorium",                   33.64530, -117.84140),
-    # ── Recreation / Administration ───────────────────────────────────────────
+    # Recreation / Administration
     "REC":  ("Anteater Recreation Center",                33.64840, -117.83940),
     "AIRB": ("Anteater Instruction & Research Bldg",      33.64880, -117.83960),
     "AITR": ("Anteater Instruction & Research",           33.64870, -117.83910),
@@ -179,12 +177,9 @@ FALLBACK: dict[str, tuple[str, float, float]] = {
     "MDE":  ("Mesa Court Dining East",                    33.64840, -117.84050),
     "MM":   ("Middle Meeting Hall",                       33.64800, -117.84060),
     "STU4": ("Student Housing 4",                         33.64860, -117.84020),
-    # ── Online / Virtual (no physical location) ────────────────────────────
     # ON, VRTL, UCI are intentionally omitted (no GPS coordinates)
 }
 
-
-# ── Overpass query ────────────────────────────────────────────────────────────
 
 def fetch_overpass(bbox: tuple) -> list[dict]:
     """Query Overpass for named buildings within bbox and return a flat list."""
@@ -203,7 +198,7 @@ def fetch_overpass(bbox: tuple) -> list[dict]:
 out center tags;
 """
     try:
-        print("[INFO] Querying Overpass API…", file=sys.stderr)
+        print("[INFO] Querying Overpass API...", file=sys.stderr)
         r = requests.post(OVERPASS_URL, data={"data": query}, timeout=50)
         r.raise_for_status()
         elements = r.json().get("elements", [])
@@ -242,8 +237,6 @@ def parse_overpass_elements(elements: list) -> dict[str, tuple[str, float, float
     return result
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
-
 def main():
     parser = argparse.ArgumentParser(description="Scrape UCI campus building coordinates.")
     parser.add_argument("--fallback", action="store_true",
@@ -260,10 +253,10 @@ def main():
     default_out = project_root / "data" / "buildings.csv"
     out_path = Path(args.out) if args.out else default_out
 
-    # 1 – Start with the hardcoded fallback
+    # Start with the hardcoded fallback
     combined: dict[str, tuple[str, float, float]] = dict(FALLBACK)
 
-    # 2 – Overwrite / extend with live Overpass data (unless --fallback flag)
+    # Overwrite / extend with live Overpass data (unless --fallback flag)
     if not args.fallback:
         elements = fetch_overpass(UCI_BBOX)
         live = parse_overpass_elements(elements)
@@ -271,7 +264,7 @@ def main():
         for code, triple in live.items():
             combined[code] = triple   # live data wins over hardcoded
 
-    # 3 – Sort by building code and output
+    # Sort by building code and output
     rows = sorted(combined.items(), key=lambda x: x[0])
 
     if args.show:

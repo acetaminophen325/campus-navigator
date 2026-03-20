@@ -42,7 +42,7 @@ def print_results_table(
         for i in range(explain_top_n):
             r = results[i]
             m = r.meeting
-            print(f"\n#{i+1}: {m.course_id} — {m.title}")
+            print(f"\n#{i+1}: {m.course_id} - {m.title}")
             print(f"  When: {m.days} {fmt_time(m.start_min)}-{fmt_time(m.end_min)}")
             print(f"  Where: {m.building_code} {m.room}")
             print(f"  Minutes until start: {r.minutes_until_start}  -> time_score={r.time_score:.3f}")
