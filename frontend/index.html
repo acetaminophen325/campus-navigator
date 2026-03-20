@@ -71,6 +71,76 @@
       </label>
     </section>
 
+    <!-- ---- Filters ---- -->
+    <section class="control-section" id="filters-section">
+      <button id="btn-filters-toggle" class="filters-toggle" aria-expanded="false">
+        <span class="filters-toggle-label">
+          <span class="icon">&#9783;</span> Filters
+        </span>
+        <span id="filters-active-badge" class="filters-badge" hidden>0</span>
+        <span class="filters-chevron">&#8250;</span>
+      </button>
+
+      <div id="filters-panel" class="filters-panel" hidden>
+
+        <!-- Department -->
+        <div class="filter-group">
+          <label for="filter-dept">Department</label>
+          <select id="filter-dept">
+            <option value="">All departments</option>
+          </select>
+        </div>
+
+        <!-- Course level -->
+        <div class="filter-group">
+          <span class="filter-group-label">Course level</span>
+          <div class="chip-row">
+            <label class="chip-label">
+              <input class="chk-level" type="checkbox" value="lower" />
+              Lower Div
+            </label>
+            <label class="chip-label">
+              <input class="chk-level" type="checkbox" value="upper" />
+              Upper Div
+            </label>
+            <label class="chip-label">
+              <input class="chk-level" type="checkbox" value="grad" />
+              Graduate
+            </label>
+          </div>
+        </div>
+
+        <!-- Section type -->
+        <div class="filter-group">
+          <span class="filter-group-label">Section type</span>
+          <div class="chip-row">
+            <label class="chip-label">
+              <input class="chk-type" type="checkbox" value="Lec" />
+              Lecture
+            </label>
+            <label class="chip-label">
+              <input class="chk-type" type="checkbox" value="Dis" />
+              Discussion
+            </label>
+            <label class="chip-label">
+              <input class="chk-type" type="checkbox" value="Lab" />
+              Lab
+            </label>
+            <label class="chip-label">
+              <input class="chk-type" type="checkbox" value="Sem" />
+              Seminar
+            </label>
+            <label class="chip-label">
+              <input class="chk-type" type="checkbox" value="Stu" />
+              Studio
+            </label>
+          </div>
+        </div>
+
+        <button id="btn-filters-clear" class="btn btn-ghost btn-sm">Clear filters</button>
+      </div>
+    </section>
+
     <!-- ---- CTA ---- -->
     <section class="control-section">
       <button id="btn-search" class="btn btn-primary" disabled>

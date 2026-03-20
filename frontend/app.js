@@ -53,6 +53,15 @@ const resultsSection  = document.getElementById("results-section");
 const resultsList     = document.getElementById("results-list");
 const resultsCount    = document.getElementById("results-count");
 
+// ── Filter panel ──────────────────────────────────────────────────────────────
+const btnFiltersToggle  = document.getElementById("btn-filters-toggle");
+const filtersPanel      = document.getElementById("filters-panel");
+const filtersActiveBadge = document.getElementById("filters-active-badge");
+const filterDept        = document.getElementById("filter-dept");
+const chkLevels         = document.querySelectorAll(".chk-level");
+const chkTypes          = document.querySelectorAll(".chk-type");
+const btnFiltersClear   = document.getElementById("btn-filters-clear");
+
 /* ============================================================
    Helpers
 ============================================================ */
@@ -98,6 +107,71 @@ function setUserPin(lat, lon) {
   // Enable search button
   btnSearch.disabled = false;
   searchError.textContent = "";
+}
+
+/* ============================================================
+   Filters
+============================================================ */
+
+// Toggle the collapsible filters panel
+btnFiltersToggle.addEventListener("click", () => {
+  const open = btnFiltersToggle.getAttribute("aria-expanded") === "true";
+  btnFiltersToggle.setAttribute("aria-expanded", String(!open));
+  filtersPanel.hidden = open;
+});
+
+// Count active filters and update the badge
+function updateFiltersBadge() {
+  let count = 0;
+  if (filterDept.value) count++;
+  chkLevels.forEach(c => { if (c.checked) count++; });
+  chkTypes.forEach(c => { if (c.checked) count++; });
+
+  if (count > 0) {
+    filtersActiveBadge.textContent = count;
+    filtersActiveBadge.hidden = false;
+  } else {
+    filtersActiveBadge.hidden = true;
+  }
+}
+
+// Attach change listeners
+filterDept.addEventListener("change", updateFiltersBadge);
+chkLevels.forEach(c => c.addEventListener("change", updateFiltersBadge));
+chkTypes.forEach(c => c.addEventListener("change", updateFiltersBadge));
+
+// Clear all filters
+btnFiltersClear.addEventListener("click", () => {
+  filterDept.value = "";
+  chkLevels.forEach(c => { c.checked = false; });
+  chkTypes.forEach(c => { c.checked = false; });
+  updateFiltersBadge();
+});
+
+// Read current filter state for API calls
+function getFilters() {
+  const dept_filter = filterDept.value;
+  const level_filters = [...chkLevels].filter(c => c.checked).map(c => c.value);
+  const type_filters  = [...chkTypes].filter(c => c.checked).map(c => c.value);
+  return { dept_filter, level_filters, type_filters };
+}
+
+/* ============================================================
+   Load departments (for filter dropdown)
+============================================================ */
+async function loadDepartments() {
+  try {
+    const res = await fetch("/api/departments");
+    const data = await res.json();
+    data.departments.forEach(dept => {
+      const opt = document.createElement("option");
+      opt.value = dept;
+      opt.textContent = dept;
+      filterDept.appendChild(opt);
+    });
+  } catch (err) {
+    console.warn("Could not load departments:", err);
+  }
 }
 
 /* ============================================================
@@ -209,6 +283,7 @@ btnSearch.addEventListener("click", async () => {
   const day       = daySelect.value;
   const now_min   = timeStrToMin(timeInput.value);
   const include_ongoing = chkOngoing.checked;
+  const { dept_filter, level_filters, type_filters } = getFilters();
 
   btnSearch.textContent = "Searching…";
   btnSearch.disabled = true;
@@ -217,7 +292,10 @@ btnSearch.addEventListener("click", async () => {
     const res = await fetch("/api/rank", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lat, lon, day, now_min, include_ongoing, top_k: 10 }),
+      body: JSON.stringify({
+        lat, lon, day, now_min, include_ongoing, top_k: 10,
+        dept_filter, level_filters, type_filters,
+      }),
     });
 
     if (!res.ok) {
@@ -284,11 +362,18 @@ function renderResults(results) {
         ? "Starting now"
         : `in ${r.minutes_until_start}min`;
 
+    // Build a human-readable label for the section type
+    const typeLabels = { Lec: "Lecture", Dis: "Discussion", Lab: "Lab",
+                         Sem: "Seminar", Stu: "Studio", Tut: "Tutorial",
+                         Res: "Research", Fld: "Field", Col: "Colloquium" };
+    const typeLabel = r.section_type ? (typeLabels[r.section_type] || r.section_type) : "";
+
     li.innerHTML = `
       <div class="card-top">
-        <span class="card-course">${r.course_id}</span>
+        <span class="card-course">${r.course_id}${typeLabel ? `<span class="card-type-badge">${typeLabel}</span>` : ""}</span>
         <span class="card-score" style="background:${color}">${scorePct}%</span>
       </div>
+      <div class="card-dept">${r.dept}</div>
       <div class="card-title">${r.title}</div>
       <div class="card-meta">
         <span>&#128337; ${r.start_time}–${r.end_time}</span>
@@ -355,3 +440,4 @@ function highlightResult(idx, results) {
    Boot
 ============================================================ */
 loadBuildings();
+loadDepartments();

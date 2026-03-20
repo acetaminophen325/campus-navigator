@@ -14,7 +14,7 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 
 from .io import load_buildings_csv, load_meetings_csv
-from .ranker import RankConfig, fmt_time, rank_meetings
+from .ranker import RankConfig, fmt_time, rank_meetings, extract_section_type, extract_course_level
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -56,6 +56,13 @@ def api_buildings():
     return jsonify({"buildings": result})
 
 
+@app.route("/api/departments")
+def api_departments():
+    """Return all unique departments found in the meetings data, sorted alphabetically."""
+    depts = sorted({m.dept for m in MEETINGS if m.dept})
+    return jsonify({"departments": depts})
+
+
 @app.route("/api/rank", methods=["POST"])
 def api_rank():
     """
@@ -83,6 +90,9 @@ def api_rank():
         now_min = int(body["now_min"])
         include_ongoing = bool(body.get("include_ongoing", True))
         top_k = int(body.get("top_k", 10))
+        dept_filter = str(body.get("dept_filter", ""))
+        level_filters = [str(x) for x in body.get("level_filters", [])]
+        type_filters  = [str(x) for x in body.get("type_filters", [])]
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -96,6 +106,9 @@ def api_rank():
         cfg=cfg,
         top_k=top_k,
         include_ongoing=include_ongoing,
+        dept_filter=dept_filter,
+        level_filters=level_filters,
+        type_filters=type_filters,
     )
 
     results = []
@@ -120,6 +133,8 @@ def api_rank():
                 "dist_score": round(r.dist_score, 4),
                 "minutes_until_start": r.minutes_until_start,
                 "distance_m": round(r.distance_m, 1),
+                "section_type": extract_section_type(m.meeting_id),
+                "course_level": extract_course_level(m.course_id),
             }
         )
 

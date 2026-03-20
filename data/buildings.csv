@@ -1,16 +1,68 @@
 code,name,lat,lon
-RH,Rowland Hall,33.6445,-117.8441
-DBH,Donald Bren Hall,33.6432,-117.8419
-ICS,Information and Computer Science I,33.6442,-117.8418
-ET,Engineering Tower,33.6447,-117.8411
-EH,Engineering Hall,33.6436,-117.8414
-PSLH,Physical Sciences Lecture Hall,33.6434,-117.84395
-SSL,Social Science Lab,33.6459,-117.8400
-SSH,Social Science Hall,33.6462,-117.8401
-SST,Social Science Tower,33.6465, -117.8401
-SSLH,Social Science Lecture Hall,33.6472, -117.8397
-ALP,Aldrich Park,33.6460,-117.8428
-HG,Humanities Gateway,33.6483,-117.8447
-HH,Humanities Hall,33.6473,-117.8440
-HSLH,Howard Schneiderman Lecture Hall,33.6455,-117.8447
-MSTB,Multipurpose Science and Technology Building,33.6420,-117.8444
+ACT,Activities & Campus Trailers,33.64640,-117.84210
+AIRB,Anteater Instruction & Research Bldg,33.64880,-117.83960
+AITR,Anteater Instruction & Research,33.64870,-117.83910
+ALP,Aldrich Park,33.64600,-117.84280
+ART,Studio Arts,33.64960,-117.84280
+BS3,Biological Sciences 3,33.64110,-117.84360
+CAC,Contemporary Arts Center,33.64990,-117.84410
+COHS,College of Health Sciences,33.64190,-117.84300
+CRH,Crystal Cove Auditorium,33.64530,-117.84140
+CTT,Continuing Education/Tech Trailers,33.64620,-117.84260
+DBH,Donald Bren Hall,33.64320,-117.84190
+DRA,Drama,33.64920,-117.84320
+DS,Calit2 / Data Science Building,33.64440,-117.84280
+ECT,Engineering Computer Technologies,33.64450,-117.84080
+EDUC,Education Building,33.64870,-117.84090
+EG,Engineering Gateway,33.64323,-117.84036
+EH,Engineering Hall,33.64360,-117.84140
+ELF,Engineering Lab Facility,33.64390,-117.84050
+ELH,Engineering Lecture Hall,33.64430,-117.84070
+ET,Engineering Tower,33.64470,-117.84110
+FRH,Frederick Reines Hall,33.64130,-117.84540
+HG,Humanities Gateway,33.64830,-117.84470
+HH,Humanities Hall,33.64730,-117.84400
+HHCR,Humanities Hall Conference Room,33.64730,-117.84400
+HIB,Humanities Instructional Building,33.64790,-117.84410
+HICF,Humanities Instructional Complex F,33.64810,-117.84370
+HSLH,Howard Schneiderman Lecture Hall,33.64550,-117.84470
+IAB,Information & Administration Building,33.64930,-117.84530
+ICS,Information and Computer Science 1,33.64420,-117.84180
+ISEB,Interdisciplinary Science & Engineering,33.64280,-117.84400
+KH,Krieger Hall,33.64560,-117.84290
+LAW,School of Law,33.65020,-117.84020
+MAB,Medical Academic Building,33.64120,-117.84350
+MDE,Mesa Court Dining East,33.64840,-117.84050
+MH,Music Hall,33.64870,-117.84360
+MM,Middle Meeting Hall,33.64800,-117.84060
+MOB,Mesa Oak Building,33.64120,-117.84380
+MPAA,Mesa Parking & Arts Annex,33.64850,-117.84190
+MS2,Medical Sciences 2,33.64100,-117.84330
+MSTB,Multipurpose Science and Technology Bldg,33.64200,-117.84440
+NS1,Natural Sciences 1,33.64220,-117.84590
+NS2,Natural Sciences 2,33.64417,-117.84528
+PCB,Paul Merage School of Business,33.65190,-117.84220
+PH,Peltason Hall,33.64380,-117.84490
+PSCB,Physical Sciences Classroom Building,33.64330,-117.84515
+PSLH,Physical Sciences Lecture Hall,33.64340,-117.84395
+PSTU,Provost Student Teaching Unit,33.64500,-117.84230
+REC,Anteater Recreation Center,33.64840,-117.83940
+RH,Rowland Hall,33.64450,-117.84410
+SB1,Social & Behavioral Sciences 1,33.64650,-117.84160
+SB2,Social & Behavioral Sciences 2,33.64680,-117.84110
+SBSG,Social & Behavioral Sciences Gateway,33.64750,-117.84080
+SCS,Social Sciences Computing Suite,33.64640,-117.84030
+SE,Science Engineering,33.64480,-117.84220
+SE2,Science Engineering 2,33.64440,-117.83960
+SH,Sprague Hall,33.64270,-117.84470
+SPH,School of Public Health,33.64180,-117.84280
+SSH,Social Science Hall,33.64620,-117.84010
+SSL,Social Science Lab,33.64590,-117.84000
+SSLH,Social Science Lecture Hall,33.64720,-117.83970
+SSPA,Social Science Plaza A,33.64690,-117.84040
+SSPB,Social Science Plaza B,33.64730,-117.84130
+SST,Social Science Tower,33.64650,-117.84010
+SSTR,Social Science Tower (annex),33.64650,-117.84010
+STU4,Student Housing 4,33.64860,-117.84020
+UEA,University Extension Annex,33.64980,-117.84680
+WSH,Winifred Smith Hall,33.65080,-117.84330

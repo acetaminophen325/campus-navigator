@@ -46,6 +46,47 @@ def minutes_until_start(meeting: Meeting, now_min: int) -> int:
     return meeting.start_min - now_min
 
 
+def extract_section_type(meeting_id: str) -> str:
+    """
+    Pull the section-type token out of the meeting_id.
+
+    meeting_id format: <DEPT_COURSE>-<section_code>-<Type>-<letter>
+    e.g. AC_ENG_20A-20001-Lec-B  → "Lec"
+         I_C_SCI_31-12345-Lab-A   → "Lab"
+    Returns the capitalised type token, or "" if it cannot be parsed.
+    """
+    parts = meeting_id.split("-")
+    if len(parts) >= 3:
+        return parts[-2]   # second-to-last segment is always the type token
+    return ""
+
+
+def extract_course_level(course_id: str) -> str:
+    """
+    Derive a human-readable level bucket from the course number.
+
+    UCI convention (roughly):
+      1  – 99   → Lower Division
+      100 – 199 → Upper Division
+      200+      → Graduate
+
+    course_id examples: "I&C SCI 31", "MATH 2B", "COMPSCI 261P"
+    Returns one of: "lower" | "upper" | "grad" | "other"
+    """
+    import re
+    # Extract the leading integer from the last whitespace-separated token
+    m = re.search(r"\b(\d+)", course_id)
+    if m:
+        n = int(m.group(1))
+        if n < 100:
+            return "lower"
+        elif n < 200:
+            return "upper"
+        else:
+            return "grad"
+    return "other"
+
+
 def filter_candidates(
     meetings: List[Meeting],
     buildings: Dict[str, Building],
@@ -54,6 +95,9 @@ def filter_candidates(
     now_min: int,
     cfg: RankConfig,
     include_ongoing: bool = True,
+    dept_filter: str = "",
+    level_filters: List[str] = [],
+    type_filters: List[str] = [],
 ) -> List[Tuple[Meeting, int, float]]:
     """
     Returns list of tuples: (meeting, minutes_until_start, distance_m)
@@ -62,7 +106,12 @@ def filter_candidates(
       - starts within [0, cfg.time_window_min] or is currently ongoing (if include_ongoing=True)
       - distance <= cfg.max_distance_m
       - building exists
-    
+      - dept_filter: if non-empty, only keep meetings from that department
+      - level_filters: if non-empty list, only keep meetings whose course level is in the list
+                       values: "lower" | "upper" | "grad"
+      - type_filters: if non-empty list, only keep meetings whose section type is in the list
+                      values e.g.: ["Lec", "Lab", "Dis", "Sem"]
+
     include_ongoing: if True, includes meetings that have already started but not ended.
     """
     user_lat, user_lon = user_latlon
@@ -77,6 +126,22 @@ def filter_candidates(
         b = buildings.get(m.building_code)
         if b is None:
             continue
+
+        # ── Optional filters ──────────────────────────────────────
+        # Department filter (case-insensitive substring match)
+        if dept_filter and dept_filter.lower() not in m.dept.lower():
+            continue
+
+        # Course level filter
+        if level_filters:
+            if extract_course_level(m.course_id) not in level_filters:
+                continue
+
+        # Section type filter
+        if type_filters:
+            sec_type = extract_section_type(m.meeting_id)
+            if sec_type not in type_filters:
+                continue
 
         # Time window: starting soon or currently ongoing
         mins_until = minutes_until_start(m, now_min)
@@ -151,11 +216,17 @@ def rank_meetings(
     cfg: RankConfig,
     top_k: int = 10,
     include_ongoing: bool = True,
+    dept_filter: str = "",
+    level_filters: List[str] = [],
+    type_filters: List[str] = [],
 ) -> List[RankedResult]:
     """
     End-to-end ranking: filter -> score -> sort desc -> return top_k results.
-    
+
     include_ongoing: if True, includes meetings that are currently in progress.
+    dept_filter: if non-empty, restrict to meetings from this department.
+    level_filters: list of level tokens to include ("lower", "upper", "grad").
+    type_filters: list of section-type tokens to include (e.g. ["Lec", "Lab"]).
     """
     candidates = filter_candidates(
         meetings=meetings,
@@ -165,6 +236,9 @@ def rank_meetings(
         now_min=now_min,
         cfg=cfg,
         include_ongoing=include_ongoing,
+        dept_filter=dept_filter,
+        level_filters=level_filters,
+        type_filters=type_filters,
     )
 
     ranked: List[RankedResult] = []

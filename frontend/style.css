@@ -375,6 +375,147 @@ input[type="time"]:focus {
 }
 
 /* ============================================================
+   Filters panel
+============================================================ */
+#filters-section {
+  padding-bottom: 0;
+}
+
+/* Toggle button (full-width, looks like a section header) */
+.filters-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.filters-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filters-toggle .icon {
+  font-size: 13px;
+}
+
+.filters-chevron {
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.2s;
+  color: var(--muted);
+}
+
+.filters-toggle[aria-expanded="true"] .filters-chevron {
+  transform: rotate(90deg);
+}
+
+/* Active-filters count badge */
+.filters-badge {
+  background: var(--blue);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 99px;
+  margin-left: auto;
+  margin-right: 6px;
+}
+
+/* Collapsible body */
+.filters-panel {
+  padding-bottom: 10px;
+}
+
+.filter-group {
+  margin-bottom: 12px;
+}
+
+.filter-group label[for],
+.filter-group-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+/* Chip-style checkboxes */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 1.5px solid var(--border);
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  user-select: none;
+}
+
+.chip-label:hover {
+  border-color: var(--blue);
+  background: var(--blue-light);
+}
+
+.chip-label input[type="checkbox"] {
+  width: 11px;
+  height: 11px;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+/* Highlight active chips */
+.chip-label:has(input:checked) {
+  border-color: var(--blue);
+  background: var(--blue-light);
+  color: var(--blue);
+  font-weight: 600;
+}
+
+/* Section-type badge on result cards */
+.card-type-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--blue-light);
+  color: var(--blue);
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* Dept tag on result cards */
+.card-dept {
+  font-size: 10px;
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
    Responsive: narrow screens → stack vertically
 ============================================================ */
 @media (max-width: 640px) {
