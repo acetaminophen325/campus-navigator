@@ -19,8 +19,19 @@
       <p class="subtitle">Find nearby classes in real time</p>
     </header>
 
-    <!-- ---- Location ---- -->
+    <!-- ---- Mode ---- -->
     <section class="control-section">
+      <div class="mode-toggle" role="group" aria-label="Tracking mode">
+        <button id="mode-live" class="mode-btn" aria-pressed="false">
+          <span class="live-dot" aria-hidden="true"></span> Live
+        </button>
+        <button id="mode-custom" class="mode-btn" aria-pressed="false">Custom</button>
+      </div>
+      <p id="mode-hint" class="status-text"></p>
+    </section>
+
+    <!-- ---- Location ---- -->
+    <section class="control-section" id="location-section">
       <h2>Location</h2>
 
       <button id="btn-geolocate" class="btn btn-outline">
@@ -34,6 +45,7 @@
         <option value="">— choose a building —</option>
       </select>
 
+      <p class="status-text map-click-hint">Tip: click anywhere on the map to simulate a position.</p>
       <p id="location-status" class="status-text"></p>
     </section>
 

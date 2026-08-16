@@ -6,14 +6,26 @@ const DAY_NAMES  = {
   Th: "Thursday", F: "Friday", Sa: "Saturday",
 };
 
+// Live mode tuning
+const LIVE_TICK_MS        = 30000; // clock/re-rank cadence
+const LIVE_MOVE_THRESH_M  = 30;    // re-rank when we move at least this far
+
 // App state
+let mode            = "custom";  // "live" | "custom"
 let userLatLon      = null;
-let availableDays   = [];   // day tokens that actually have classes in the data
+let availableDays   = [];        // day tokens that actually have classes in the data
 let buildingsData   = [];
 let buildingMarkers = {};
 let resultMarkers   = [];
 let userMarker      = null;
+let routeLine       = null;
 let activeCardIndex = null;
+let lastResults     = [];
+let watchId         = null;
+let liveTimer       = null;
+let lastSearchPos   = null;      // [lat, lon] at the time of the last live search
+let lastSearchMin   = null;      // minutes-since-midnight of the last live search
+let searching       = false;
 
 // Map
 const map = L.map("map").setView(UCI_CENTER, UCI_ZOOM);
@@ -23,6 +35,9 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 // DOM
+const modeLiveBtn        = document.getElementById("mode-live");
+const modeCustomBtn      = document.getElementById("mode-custom");
+const modeHint           = document.getElementById("mode-hint");
 const btnGeolocate       = document.getElementById("btn-geolocate");
 const buildingSelect     = document.getElementById("building-select");
 const daySelect          = document.getElementById("day-select");
@@ -54,9 +69,25 @@ function nowTimeStr() {
   return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 }
 
+function nowMinOfDay() {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
+}
+
 function timeStrToMin(t) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
+}
+
+function clockStr() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function haversineM(lat1, lon1, lat2, lon2) {
+  const R = 6371000, rad = Math.PI / 180;
+  const dphi = (lat2 - lat1) * rad, dlam = (lon2 - lon1) * rad;
+  const a = Math.sin(dphi/2)**2 + Math.cos(lat1*rad) * Math.cos(lat2*rad) * Math.sin(dlam/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function scoreColor(score) {
@@ -65,19 +96,112 @@ function scoreColor(score) {
   return "#ef4444";
 }
 
-function setUserPin(lat, lon) {
+const FEAS = {
+  easy:    { cls: "feas-easy",    label: (r) => `make it with ${r.spare_min} min to spare` },
+  tight:   { cls: "feas-tight",   label: (r) => r.spare_min > 0 ? `tight — ${r.spare_min} min to spare` : "tight — arrive right at start" },
+  late:    { cls: "feas-late",    label: () => "can't make it before start" },
+  ongoing: { cls: "feas-ongoing", label: (r) => `in progress — ${r.walk_min} min away` },
+};
+
+function setUserPin(lat, lon, tooltip) {
   userLatLon = [lat, lon];
   if (userMarker) userMarker.remove();
   userMarker = L.circleMarker([lat, lon], {
     radius: 9, color: "#fff", weight: 2.5,
     fillColor: "#ef4444", fillOpacity: 1,
-  }).addTo(map).bindTooltip("You are here");
+  }).addTo(map).bindTooltip(tooltip || "You are here");
   map.setView([lat, lon], Math.max(map.getZoom(), UCI_ZOOM));
   btnSearch.disabled = false;
   searchError.textContent = "";
 }
 
-// Filters panel
+function clearRoute() {
+  if (routeLine) { routeLine.remove(); routeLine = null; }
+}
+
+/* ================================================================
+   Mode switching: Live (continuous GPS + clock) vs Custom (simulated)
+================================================================ */
+function setModeButtons() {
+  const live = mode === "live";
+  modeLiveBtn.classList.toggle("is-active", live);
+  modeCustomBtn.classList.toggle("is-active", !live);
+  modeLiveBtn.setAttribute("aria-pressed", String(live));
+  modeCustomBtn.setAttribute("aria-pressed", String(!live));
+  // Simulated inputs only make sense in custom mode.
+  daySelect.disabled = live;
+  timeInput.disabled = live;
+  btnNow.disabled = live;
+  btnGeolocate.disabled = live;
+  buildingSelect.disabled = live;
+  document.body.classList.toggle("live-mode", live);
+}
+
+function enterLiveMode() {
+  if (!navigator.geolocation) {
+    modeHint.textContent = "Geolocation is unavailable in this browser, staying in custom mode.";
+    enterCustomMode();
+    return;
+  }
+  mode = "live";
+  setModeButtons();
+  modeHint.textContent = "Following your location and the clock. Results refresh automatically.";
+  daySelect.value = nowDayToken();
+  timeInput.value = nowTimeStr();
+
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      const first = !userLatLon;
+      setUserPin(lat, lon, "You are here (live)");
+      locationStatus.textContent = `LIVE · GPS ${lat.toFixed(5)}, ${lon.toFixed(5)} · ${clockStr()}`;
+      const moved = lastSearchPos
+        ? haversineM(lat, lon, lastSearchPos[0], lastSearchPos[1]) : Infinity;
+      if (first || moved >= LIVE_MOVE_THRESH_M) doSearch(true);
+    },
+    (err) => {
+      modeHint.textContent = `Location error: ${err.message}. Switched to custom mode.`;
+      enterCustomMode();
+    },
+    { enableHighAccuracy: true, maximumAge: 5000 }
+  );
+
+  liveTimer = setInterval(() => {
+    if (mode !== "live") return;
+    daySelect.value = nowDayToken();
+    timeInput.value = nowTimeStr();
+    if (userLatLon) {
+      locationStatus.textContent =
+        `LIVE · GPS ${userLatLon[0].toFixed(5)}, ${userLatLon[1].toFixed(5)} · ${clockStr()}`;
+      // Re-rank when the clock has moved to a new minute since the last search.
+      if (lastSearchMin === null || nowMinOfDay() !== lastSearchMin) doSearch(true);
+    }
+  }, LIVE_TICK_MS);
+}
+
+function enterCustomMode() {
+  mode = "custom";
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if (liveTimer !== null) { clearInterval(liveTimer); liveTimer = null; }
+  setModeButtons();
+  modeHint.textContent = "Simulate any position and time: pick a building, click the map, and set day and time.";
+}
+
+modeLiveBtn.addEventListener("click", () => { if (mode !== "live") enterLiveMode(); });
+modeCustomBtn.addEventListener("click", () => { if (mode !== "custom") enterCustomMode(); });
+
+// Map click simulates a position in custom mode.
+map.on("click", (e) => {
+  if (mode !== "custom") return;
+  const { lat, lng } = e.latlng;
+  buildingSelect.value = "";
+  setUserPin(lat, lng, "Simulated position");
+  locationStatus.textContent = `Simulated: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+});
+
+/* ================================================================
+   Filters
+================================================================ */
 btnFiltersToggle.addEventListener("click", () => {
   const open = btnFiltersToggle.getAttribute("aria-expanded") === "true";
   btnFiltersToggle.setAttribute("aria-expanded", String(!open));
@@ -123,7 +247,9 @@ btnQueryClear.addEventListener("click", () => {
   queryInput.focus();
 });
 
-// Load departments for the filter dropdown
+/* ================================================================
+   Data loading
+================================================================ */
 async function loadDepartments() {
   try {
     const res  = await fetch("/api/departments");
@@ -139,7 +265,6 @@ async function loadDepartments() {
   }
 }
 
-// Load buildings, populate dropdown and map markers
 async function loadBuildings() {
   try {
     const res  = await fetch("/api/buildings");
@@ -169,7 +294,7 @@ async function loadBuildings() {
   }
 }
 
-// Geolocation
+// Geolocation (custom mode: one-shot fix)
 btnGeolocate.addEventListener("click", () => {
   if (!navigator.geolocation) {
     locationStatus.textContent = "Geolocation is not supported by this browser.";
@@ -198,7 +323,7 @@ buildingSelect.addEventListener("change", () => {
   if (!code) return;
   const bldg = buildingsData.find(b => b.code === code);
   if (!bldg) return;
-  setUserPin(bldg.lat, bldg.lon);
+  setUserPin(bldg.lat, bldg.lon, "Simulated position");
   locationStatus.textContent = `Selected: ${bldg.name}`;
 });
 
@@ -215,13 +340,12 @@ function resetTime() {
 resetTime();
 btnNow.addEventListener("click", resetTime);
 
-// Load which days actually have classes, then fix the default if today has none
 async function loadDays() {
   try {
     const res  = await fetch("/api/days");
     const data = await res.json();
     availableDays = data.days || [];
-    if (availableDays.length && !availableDays.includes(daySelect.value)) {
+    if (mode === "custom" && availableDays.length && !availableDays.includes(daySelect.value)) {
       daySelect.value = preferredDay();
     }
   } catch (err) {
@@ -229,21 +353,26 @@ async function loadDays() {
   }
 }
 
-// Search
-btnSearch.addEventListener("click", async () => {
+/* ================================================================
+   Search
+================================================================ */
+async function doSearch(auto = false) {
+  if (searching) return;
   searchError.textContent = "";
   if (!userLatLon) {
-    searchError.textContent = "Please set your location first.";
+    if (!auto) searchError.textContent = "Please set your location first.";
     return;
   }
 
-  const [lat, lon]   = userLatLon;
-  const day          = daySelect.value;
-  const now_min      = timeStrToMin(timeInput.value);
+  const [lat, lon] = userLatLon;
+  const live       = mode === "live";
+  const day        = live ? nowDayToken() : daySelect.value;
+  const now_min    = live ? nowMinOfDay() : timeStrToMin(timeInput.value);
   const include_ongoing = chkOngoing.checked;
-  const query        = queryInput.value.trim();
+  const query      = queryInput.value.trim();
   const { dept_filter, level_filters, type_filters } = getFilters();
 
+  searching = true;
   btnSearch.textContent = "Searching...";
   btnSearch.disabled = true;
 
@@ -261,18 +390,26 @@ btnSearch.addEventListener("click", async () => {
       throw new Error(err.error || "Server error");
     }
     const data = await res.json();
+    lastSearchPos = [lat, lon];
+    lastSearchMin = now_min;
     renderResults(data.results, data.query, data.mode, data.day_has_classes, day);
-    resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Auto refreshes in live mode should not yank the scroll position.
+    if (!auto) resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (err) {
     searchError.textContent = err.message;
     console.error("Rank error:", err);
   } finally {
-    btnSearch.textContent = "Find Nearby Classes";
+    searching = false;
+    btnSearch.textContent = mode === "live" ? "Refresh Now" : "Find Nearby Classes";
     btnSearch.disabled = false;
   }
-});
+}
 
-// Render results
+btnSearch.addEventListener("click", () => doSearch(false));
+
+/* ================================================================
+   Results rendering
+================================================================ */
 function clearResultMarkers() {
   resultMarkers.forEach(m => m && m.remove());
   resultMarkers = [];
@@ -282,10 +419,13 @@ function clearResultMarkers() {
   });
 }
 
-function renderResults(results, activeQuery, mode, dayHasClasses, dayToken) {
+function renderResults(results, activeQuery, rankMode, dayHasClasses, dayToken) {
+  const keepIdx = activeCardIndex;
   clearResultMarkers();
+  clearRoute();
   resultsList.innerHTML = "";
   activeCardIndex = null;
+  lastResults = results;
   resultsSection.hidden = false;
   resultsCount.textContent = `${results.length} found`;
   resultsNote.hidden = true;
@@ -301,7 +441,7 @@ function renderResults(results, activeQuery, mode, dayHasClasses, dayToken) {
     return;
   }
 
-  if (mode === "widened") {
+  if (rankMode === "widened") {
     resultsNote.hidden = false;
     resultsNote.textContent = "No classes within the next hour nearby — showing the closest upcoming classes instead.";
   }
@@ -329,6 +469,14 @@ function renderResults(results, activeQuery, mode, dayHasClasses, dayToken) {
       : r.minutes_until_start === 0 ? "Starting now" : `in ${r.minutes_until_start}min`;
     const typeLabel = r.section_type ? (typeLabels[r.section_type] || r.section_type) : "";
 
+    // "Can I make it?" badge from walking time vs. minutes until start.
+    const feas = FEAS[r.feasibility];
+    const est  = r.walk_estimated ? "~" : "";
+    const feasBadge = feas ? `
+      <div class="feas-badge ${feas.cls}">
+        &#128694; ${est}${Math.round(r.walk_min)} min walk &middot; ${feas.label(r)}
+      </div>` : "";
+
     // Score breakdown shown when a text query is active
     const textBar = showTextScore ? `
       <div class="score-breakdown">
@@ -350,6 +498,7 @@ function renderResults(results, activeQuery, mode, dayHasClasses, dayToken) {
         <span>&#128205; ${distStr}</span>
         <span>&#9201; ${minsStr}</span>
       </div>
+      ${feasBadge}
       ${textBar}
       <div class="score-bar-track">
         <div class="score-bar-fill" style="width:${scorePct}%;background:${color}"></div>
@@ -370,6 +519,32 @@ function renderResults(results, activeQuery, mode, dayHasClasses, dayToken) {
       resultMarkers.push(null);
     }
   });
+
+  // In live mode, keep the selected card's route on screen across refreshes.
+  if (keepIdx !== null && keepIdx < results.length) highlightResult(keepIdx, results);
+}
+
+async function drawRoute(r) {
+  clearRoute();
+  if (!userLatLon || !r.building_code) return;
+  try {
+    const res = await fetch("/api/route", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from_lat: userLatLon[0], from_lon: userLatLon[1], to_code: r.building_code,
+      }),
+    });
+    if (!res.ok) return; // routing unavailable: keep the simple highlight
+    const data = await res.json();
+    routeLine = L.polyline(data.polyline, {
+      color: "#0064a4", weight: 5, opacity: 0.75, lineJoin: "round",
+    }).addTo(map);
+    routeLine.bindTooltip(`${data.walk_min} min walk (${Math.round(data.distance_m)} m)`, { sticky: true });
+    map.fitBounds(routeLine.getBounds(), { padding: [40, 40], maxZoom: 17 });
+  } catch (err) {
+    console.warn("Route error:", err);
+  }
 }
 
 function highlightResult(idx, results) {
@@ -385,12 +560,18 @@ function highlightResult(idx, results) {
   }
   const r = results[idx];
   if (r.lat != null && r.lon != null) {
-    map.setView([r.lat, r.lon], Math.max(map.getZoom(), 17));
     const bMarker = buildingMarkers[r.building_code];
     if (bMarker) bMarker.openTooltip();
+    drawRoute(r);
   }
 }
 
+/* ================================================================
+   Boot
+================================================================ */
 loadBuildings();
 loadDepartments();
 loadDays();
+// Default to Google-Maps-style live tracking; falls back to custom if
+// geolocation is denied or unavailable.
+enterLiveMode();

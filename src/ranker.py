@@ -273,6 +273,30 @@ def day_has_meetings(meetings: List[Meeting], day_token: str) -> bool:
     return any(occurs_today(m, day_token) for m in meetings)
 
 
+# "Can I make it?" buckets, based on spare minutes after walking.
+FEASIBILITY_EASY_SPARE_MIN = 5.0
+
+
+def classify_feasibility(minutes_until_start: int, walk_min: float) -> Tuple[str, int]:
+    """
+    Classify whether a walker can reach a class before it starts.
+
+    Returns (label, spare_min):
+      - "ongoing": class already started (spare compares walk time to now)
+      - "easy":    arrive with a comfortable margin
+      - "tight":   arrive at or just before start
+      - "late":    cannot arrive before start at walking pace
+    """
+    spare = minutes_until_start - walk_min
+    if minutes_until_start < 0:
+        return "ongoing", round(spare)
+    if spare >= FEASIBILITY_EASY_SPARE_MIN:
+        return "easy", round(spare)
+    if spare >= 0:
+        return "tight", round(spare)
+    return "late", round(spare)
+
+
 def fmt_time(mins: int) -> str:
     mins = int(mins)
     h24 = mins // 60
