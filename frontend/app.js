@@ -1,9 +1,14 @@
 const UCI_CENTER = [33.6405, -117.8443];
 const UCI_ZOOM   = 16;
 const DAY_TOKENS = ["Su", "M", "Tu", "W", "Th", "F", "Sa"];
+const DAY_NAMES  = {
+  Su: "Sunday", M: "Monday", Tu: "Tuesday", W: "Wednesday",
+  Th: "Thursday", F: "Friday", Sa: "Saturday",
+};
 
 // App state
 let userLatLon      = null;
+let availableDays   = [];   // day tokens that actually have classes in the data
 let buildingsData   = [];
 let buildingMarkers = {};
 let resultMarkers   = [];
@@ -30,6 +35,7 @@ const searchError        = document.getElementById("search-error");
 const resultsSection     = document.getElementById("results-section");
 const resultsList        = document.getElementById("results-list");
 const resultsCount       = document.getElementById("results-count");
+const resultsNote        = document.getElementById("results-note");
 const btnFiltersToggle   = document.getElementById("btn-filters-toggle");
 const filtersPanel       = document.getElementById("filters-panel");
 const filtersActiveBadge = document.getElementById("filters-active-badge");
@@ -197,12 +203,31 @@ buildingSelect.addEventListener("change", () => {
 });
 
 // Time defaults
+function preferredDay() {
+  const today = nowDayToken();
+  if (availableDays.length === 0 || availableDays.includes(today)) return today;
+  return availableDays[0]; // today has no classes (e.g. weekend): use the next class day
+}
 function resetTime() {
-  daySelect.value = nowDayToken();
+  daySelect.value = preferredDay();
   timeInput.value = nowTimeStr();
 }
 resetTime();
 btnNow.addEventListener("click", resetTime);
+
+// Load which days actually have classes, then fix the default if today has none
+async function loadDays() {
+  try {
+    const res  = await fetch("/api/days");
+    const data = await res.json();
+    availableDays = data.days || [];
+    if (availableDays.length && !availableDays.includes(daySelect.value)) {
+      daySelect.value = preferredDay();
+    }
+  } catch (err) {
+    console.warn("Could not load days:", err);
+  }
+}
 
 // Search
 btnSearch.addEventListener("click", async () => {
@@ -236,7 +261,8 @@ btnSearch.addEventListener("click", async () => {
       throw new Error(err.error || "Server error");
     }
     const data = await res.json();
-    renderResults(data.results, data.query);
+    renderResults(data.results, data.query, data.mode, data.day_has_classes, day);
+    resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (err) {
     searchError.textContent = err.message;
     console.error("Rank error:", err);
@@ -256,16 +282,28 @@ function clearResultMarkers() {
   });
 }
 
-function renderResults(results, activeQuery) {
+function renderResults(results, activeQuery, mode, dayHasClasses, dayToken) {
   clearResultMarkers();
   resultsList.innerHTML = "";
   activeCardIndex = null;
   resultsSection.hidden = false;
   resultsCount.textContent = `${results.length} found`;
+  resultsNote.hidden = true;
+  resultsNote.textContent = "";
 
   if (results.length === 0) {
-    resultsList.innerHTML = `<li class="results-empty">No classes found nearby.<br>Try a different time or location.</li>`;
+    if (dayHasClasses === false) {
+      const name = DAY_NAMES[dayToken] || "this day";
+      resultsList.innerHTML = `<li class="results-empty">No classes are scheduled on ${name}.<br>Try a weekday.</li>`;
+    } else {
+      resultsList.innerHTML = `<li class="results-empty">No classes found nearby, even after widening the search.<br>Try a different time or location.</li>`;
+    }
     return;
+  }
+
+  if (mode === "widened") {
+    resultsNote.hidden = false;
+    resultsNote.textContent = "No classes within the next hour nearby — showing the closest upcoming classes instead.";
   }
 
   const showTextScore = Boolean(activeQuery);
@@ -355,3 +393,4 @@ function highlightResult(idx, results) {
 
 loadBuildings();
 loadDepartments();
+loadDays();

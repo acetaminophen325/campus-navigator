@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Dict, List, Optional, Tuple
 
 from .models import Building, Meeting, RankedResult
@@ -211,6 +211,66 @@ def rank_meetings(
 
     ranked.sort(key=lambda r: r.score, reverse=True)
     return ranked[:top_k]
+
+
+# When the primary search finds nothing, widen to the rest of the day and a
+# larger radius so the app always shows the nearest upcoming classes rather
+# than a dead end.
+FALLBACK_WINDOW_MIN = 24 * 60
+FALLBACK_DISTANCE_FACTOR = 3.0
+
+
+def rank_with_fallback(
+    meetings: List[Meeting],
+    buildings: Dict[str, Building],
+    user_latlon: Tuple[float, float],
+    day_token: str,
+    now_min: int,
+    cfg: RankConfig,
+    top_k: int = 10,
+    include_ongoing: bool = True,
+    dept_filter: str = "",
+    level_filters: List[str] = [],
+    type_filters: List[str] = [],
+    query: str = "",
+    bm25: Optional[BM25Index] = None,
+) -> Tuple[List[RankedResult], str]:
+    """
+    Rank, and if nothing is found in the configured window/radius, widen once.
+
+    Returns (results, mode):
+      - "primary": results found within the normal window and distance
+      - "widened": nothing nearby soon, so results come from a longer
+                   look-ahead window and a larger radius
+      - "none":    still nothing (e.g. no classes meet on this day at all)
+    """
+    kwargs = dict(
+        meetings=meetings, buildings=buildings, user_latlon=user_latlon,
+        day_token=day_token, now_min=now_min, top_k=top_k,
+        include_ongoing=include_ongoing, dept_filter=dept_filter,
+        level_filters=level_filters, type_filters=type_filters,
+        query=query, bm25=bm25,
+    )
+
+    results = rank_meetings(cfg=cfg, **kwargs)
+    if results:
+        return results, "primary"
+
+    wide_cfg = replace(
+        cfg,
+        time_window_min=FALLBACK_WINDOW_MIN,
+        max_distance_m=cfg.max_distance_m * FALLBACK_DISTANCE_FACTOR,
+    )
+    results = rank_meetings(cfg=wide_cfg, **kwargs)
+    if results:
+        return results, "widened"
+
+    return [], "none"
+
+
+def day_has_meetings(meetings: List[Meeting], day_token: str) -> bool:
+    """True if any meeting occurs on the given day, ignoring time and distance."""
+    return any(occurs_today(m, day_token) for m in meetings)
 
 
 def fmt_time(mins: int) -> str:
