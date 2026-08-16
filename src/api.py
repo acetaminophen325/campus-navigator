@@ -14,7 +14,14 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 
 from .io import load_buildings_csv, load_meetings_csv
-from .ranker import RankConfig, fmt_time, rank_meetings, extract_section_type, extract_course_level
+from .ranker import (
+    RankConfig,
+    fmt_time,
+    rank_with_fallback,
+    day_has_meetings,
+    extract_section_type,
+    extract_course_level,
+)
 from .search import BM25Index
 
 BASE_DIR    = Path(__file__).parent.parent
@@ -51,6 +58,18 @@ def api_departments():
     return jsonify({"departments": depts})
 
 
+# Day tokens in weekly order, so the frontend can default to a day that
+# actually has classes instead of dead-ending on an empty weekend.
+_DAY_ORDER = ["M", "Tu", "W", "Th", "F", "Sa", "Su"]
+
+
+@app.route("/api/days")
+def api_days():
+    present = {d for d in _DAY_ORDER if day_has_meetings(MEETINGS, d)}
+    days = [d for d in _DAY_ORDER if d in present]
+    return jsonify({"days": days})
+
+
 @app.route("/api/rank", methods=["POST"])
 def api_rank():
     """
@@ -85,11 +104,20 @@ def api_rank():
         level_filters   = [str(x) for x in body.get("level_filters", [])]
         type_filters    = [str(x) for x in body.get("type_filters", [])]
         query           = str(body.get("query", "")).strip()
+
+        # Optional overrides for the look-ahead window and radius. These let
+        # the client widen or narrow the search (and back the empty-state
+        # fallback and future time/position simulation).
+        cfg_kwargs = {}
+        if "time_window_min" in body:
+            cfg_kwargs["time_window_min"] = int(body["time_window_min"])
+        if "max_distance_m" in body:
+            cfg_kwargs["max_distance_m"] = float(body["max_distance_m"])
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 400
 
-    cfg = RankConfig()
-    ranked = rank_meetings(
+    cfg = RankConfig(**cfg_kwargs)
+    ranked, mode = rank_with_fallback(
         meetings=MEETINGS,
         buildings=BUILDINGS,
         user_latlon=(user_lat, user_lon),
@@ -131,7 +159,12 @@ def api_rank():
             "course_level":  extract_course_level(m.course_id),
         })
 
-    return jsonify({"results": results, "query": query})
+    return jsonify({
+        "results": results,
+        "query": query,
+        "mode": mode,
+        "day_has_classes": day_has_meetings(MEETINGS, day_token),
+    })
 
 
 if __name__ == "__main__":
