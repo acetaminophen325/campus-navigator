@@ -81,4 +81,4 @@ The class and building data are already checked in under `data/`. To refresh the
 
 ## Contribution
 
-Group final project for UC Irvine CS 125. The large majority of the code is mine (16 of the 19 commits): the ranking engine, the BM25 search index, the Flask API, the Leaflet web UI, the CLI demo, and the building and meeting data parsing. A teammate contributed the initial WebSoc scraper and the first raw schedule data file.
+Group final project for UC Irvine CS 125. The large majority of the code is mine (16 of the 19 commits): the ranking engine, the BM25 search index, the Flask API, the Leaflet web UI, the CLI demo, and the building and meeting data parsing. My teammate Jeffrey Li contributed the initial WebSoc scraper and the first raw schedule data file.
