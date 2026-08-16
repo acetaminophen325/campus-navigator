@@ -26,6 +26,7 @@ let liveTimer       = null;
 let lastSearchPos   = null;      // [lat, lon] at the time of the last live search
 let lastSearchMin   = null;      // minutes-since-midnight of the last live search
 let searching       = false;
+let firstSearchDone = false;
 
 // Map
 const map = L.map("map").setView(UCI_CENTER, UCI_ZOOM);
@@ -47,9 +48,12 @@ const chkOngoing         = document.getElementById("chk-ongoing");
 const btnSearch          = document.getElementById("btn-search");
 const locationStatus     = document.getElementById("location-status");
 const searchError        = document.getElementById("search-error");
-const resultsSection     = document.getElementById("results-section");
+const searchView         = document.getElementById("search-view");
+const resultsView        = document.getElementById("results-view");
+const btnBack            = document.getElementById("btn-back");
 const resultsList        = document.getElementById("results-list");
 const resultsCount       = document.getElementById("results-count");
+const resultsContext     = document.getElementById("results-context");
 const resultsNote        = document.getElementById("results-note");
 const btnFiltersToggle   = document.getElementById("btn-filters-toggle");
 const filtersPanel       = document.getElementById("filters-panel");
@@ -118,6 +122,28 @@ function setUserPin(lat, lon, tooltip) {
 function clearRoute() {
   if (routeLine) { routeLine.remove(); routeLine = null; }
 }
+
+// Sidebar has two swappable views: the controls and the results.
+function showView(name) {
+  const results = name === "results";
+  resultsView.hidden = !results;
+  searchView.hidden = results;
+}
+
+function min12(m) {
+  let h = Math.floor(m / 60);
+  const mm = m % 60;
+  const ap = h < 12 ? "AM" : "PM";
+  h = h % 12 || 12;
+  return `${h}:${String(mm).padStart(2, "0")} ${ap}`;
+}
+
+function contextLabel(live, day, now_min) {
+  if (live) return `Live · updated ${clockStr()}`;
+  return `${DAY_NAMES[day] || day} · ${min12(now_min)}`;
+}
+
+btnBack.addEventListener("click", () => showView("search"));
 
 /* ================================================================
    Mode switching: Live (continuous GPS + clock) vs Custom (simulated)
@@ -393,8 +419,14 @@ async function doSearch(auto = false) {
     lastSearchPos = [lat, lon];
     lastSearchMin = now_min;
     renderResults(data.results, data.query, data.mode, data.day_has_classes, day);
-    // Auto refreshes in live mode should not yank the scroll position.
-    if (!auto) resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    resultsContext.textContent = contextLabel(live, day, now_min);
+    // Show the results view on an explicit search or the first (live) search;
+    // later live auto-refreshes update content without yanking the view.
+    if (!auto || !firstSearchDone) {
+      showView("results");
+      resultsList.scrollTop = 0;
+    }
+    firstSearchDone = true;
   } catch (err) {
     searchError.textContent = err.message;
     console.error("Rank error:", err);
@@ -426,7 +458,6 @@ function renderResults(results, activeQuery, rankMode, dayHasClasses, dayToken) 
   resultsList.innerHTML = "";
   activeCardIndex = null;
   lastResults = results;
-  resultsSection.hidden = false;
   resultsCount.textContent = `${results.length} found`;
   resultsNote.hidden = true;
   resultsNote.textContent = "";

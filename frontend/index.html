@@ -19,6 +19,9 @@
       <p class="subtitle">Find nearby classes in real time</p>
     </header>
 
+    <!-- ============ Search view: all controls ============ -->
+    <div id="search-view">
+
     <!-- ---- Mode ---- -->
     <section class="control-section">
       <div class="mode-toggle" role="group" aria-label="Tracking mode">
@@ -173,15 +176,22 @@
       <p id="search-error" class="error-text"></p>
     </section>
 
-    <!-- ---- Results ---- -->
-    <section id="results-section" hidden>
-      <div id="results-header">
-        <h2>Results</h2>
-        <span id="results-count"></span>
+    </div><!-- /#search-view -->
+
+    <!-- ============ Results view: replaces the controls ============ -->
+    <div id="results-view" hidden>
+      <div id="results-view-header">
+        <button id="btn-back" class="btn-back">
+          <span aria-hidden="true">&#8592;</span> Back to search
+        </button>
+        <div id="results-view-meta">
+          <span id="results-count"></span>
+          <p id="results-context"></p>
+        </div>
       </div>
       <p id="results-note" class="results-note" hidden></p>
       <ul id="results-list"></ul>
-    </section>
+    </div>
   </aside>
 
   <!-- ================================================================
