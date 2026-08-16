@@ -13,9 +13,11 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
 
+from .graph import load_default_graph, straight_line_walk_minutes, walk_minutes
 from .io import load_buildings_csv, load_meetings_csv
 from .ranker import (
     RankConfig,
+    classify_feasibility,
     fmt_time,
     rank_with_fallback,
     day_has_meetings,
@@ -33,6 +35,16 @@ MEETINGS  = load_meetings_csv(DATA_DIR / "meetings.csv")
 
 # Build the BM25 index once at startup over all meetings
 BM25 = BM25Index(MEETINGS)
+
+# Walking graph (OSM footpaths). Optional: without it, walk times fall back
+# to straight-line estimates and /api/route reports 404.
+GRAPH = load_default_graph(DATA_DIR)
+
+# Snap each building to its nearest walk-graph node once at startup.
+BUILDING_NODES = (
+    {code: GRAPH.nearest_node(b.lat, b.lon) for code, b in BUILDINGS.items()}
+    if GRAPH else {}
+)
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
 
@@ -133,11 +145,37 @@ def api_rank():
         bm25=BM25,
     )
 
+    # Walking times: one multi-target Dijkstra from the user's position to
+    # every result building (or straight-line estimates without a graph).
+    walk_dists_m = {}
+    if GRAPH is not None and ranked:
+        origin = GRAPH.nearest_node(user_lat, user_lon)
+        targets = {BUILDING_NODES[r.meeting.building_code]
+                   for r in ranked if r.meeting.building_code in BUILDING_NODES}
+        node_dists = GRAPH.dijkstra_multi(origin, targets)
+        for r in ranked:
+            node = BUILDING_NODES.get(r.meeting.building_code)
+            if node is not None and node in node_dists:
+                walk_dists_m[r.meeting.meeting_id] = node_dists[node]
+
     results = []
     for r in ranked:
         m    = r.meeting
         bldg = BUILDINGS.get(m.building_code)
+
+        if m.meeting_id in walk_dists_m:
+            walk_min = walk_minutes(walk_dists_m[m.meeting_id])
+            walk_est = False
+        else:
+            walk_min = straight_line_walk_minutes(r.distance_m)
+            walk_est = True
+        feasibility, spare_min = classify_feasibility(r.minutes_until_start, walk_min)
+
         results.append({
+            "walk_min":      round(walk_min, 1),
+            "walk_estimated": walk_est,
+            "spare_min":     spare_min,
+            "feasibility":   feasibility,
             "course_id":    m.course_id,
             "title":        m.title,
             "dept":         m.dept,
@@ -164,6 +202,53 @@ def api_rank():
         "query": query,
         "mode": mode,
         "day_has_classes": day_has_meetings(MEETINGS, day_token),
+        "routing": GRAPH is not None,
+    })
+
+
+@app.route("/api/route", methods=["POST"])
+def api_route():
+    """
+    Walking route from a point to a building.
+
+    Expected JSON body:
+        from_lat  float
+        from_lon  float
+        to_code   str    building code (e.g. "DBH")
+
+    Returns the A* path over the OSM walking graph as a polyline of
+    [lat, lon] points, plus distance and walking time.
+    """
+    if GRAPH is None:
+        return jsonify({"error": "No walking graph available. Run scripts/fetch_walk_graph.py."}), 404
+
+    body = request.get_json(force=True, silent=True) or {}
+    missing = [f for f in ("from_lat", "from_lon", "to_code") if f not in body]
+    if missing:
+        return jsonify({"error": f"Missing fields: {missing}"}), 400
+
+    try:
+        from_lat = float(body["from_lat"])
+        from_lon = float(body["from_lon"])
+        to_code  = str(body["to_code"])
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    bldg = BUILDINGS.get(to_code)
+    if bldg is None or to_code not in BUILDING_NODES:
+        return jsonify({"error": f"Unknown building code: {to_code}"}), 404
+
+    src = GRAPH.nearest_node(from_lat, from_lon)
+    dst = BUILDING_NODES[to_code]
+    dist_m, path = GRAPH.astar(src, dst)
+    if not path:
+        return jsonify({"error": "No walking route found."}), 404
+
+    polyline = [[from_lat, from_lon]] + GRAPH.route_coords(path) + [[bldg.lat, bldg.lon]]
+    return jsonify({
+        "polyline": polyline,
+        "distance_m": round(dist_m, 1),
+        "walk_min": round(walk_minutes(dist_m), 1),
     })
 
 

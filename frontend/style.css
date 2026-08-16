@@ -620,3 +620,79 @@ input[type="time"]:focus {
     flex: none;
   }
 }
+
+/* ============================================================
+   Mode toggle (Live / Custom)
+============================================================ */
+.mode-toggle {
+  display: flex;
+  gap: 6px;
+  background: #e5e7eb;
+  border-radius: 99px;
+  padding: 4px;
+}
+
+.mode-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .2s, color .2s, box-shadow .2s;
+}
+
+.mode-btn.is-active {
+  background: #fff;
+  color: var(--blue);
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.mode-btn.is-active .live-dot {
+  background: var(--bad);
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .35; }
+}
+
+body.live-mode .map-click-hint { display: none; }
+
+#location-section select:disabled,
+.btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Feasibility badge ("can I make it?")
+============================================================ */
+.feas-badge {
+  margin-top: 8px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.feas-easy    { background: #dcfce7; color: #15803d; }
+.feas-tight   { background: #fef3c7; color: #b45309; }
+.feas-late    { background: #fee2e2; color: #b91c1c; }
+.feas-ongoing { background: var(--blue-light); color: var(--blue); }
