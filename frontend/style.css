@@ -45,8 +45,31 @@ body {
   flex-direction: column;
   background: #fff;
   border-right: 1px solid var(--border);
-  overflow-y: auto;
+  overflow: hidden;
   z-index: 10;
+}
+
+/* The sidebar hosts two swappable views; each fills the space under the
+   header and scrolls on its own so results get the full panel to breathe. */
+#search-view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+#results-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Setting display on #results-view overrides the [hidden] attribute's
+   UA display:none, so restore it explicitly for both views. */
+#search-view[hidden],
+#results-view[hidden] {
+  display: none;
 }
 
 #map-container {
@@ -261,19 +284,36 @@ input[type="time"]:focus {
   overflow: hidden;
 }
 
-#results-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 8px;
+#results-view-header {
+  padding: 12px 16px 10px;
   border-bottom: 1px solid var(--border);
+  background: #fafafa;
 }
 
-#results-header h2 {
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  color: var(--blue);
+  font-weight: 600;
   font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.btn-back:hover { text-decoration: underline; }
+
+#results-view-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#results-context {
+  font-size: 12px;
   color: var(--muted);
   margin: 0;
 }
