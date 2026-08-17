@@ -2,9 +2,7 @@
 
 A live, location-aware web app for finding the UC Irvine class sections meeting near you right now, ranked by how close and how soon they are, with real walking routes, a "can you make it?" estimate, and optional keyword search. Built in Python.
 
-<!-- TODO(jovan): save a screenshot of the running app (map with a drawn route + result cards)
-     to assets/demo.png, then uncomment the line below. -->
-<!-- ![Campus Navigator](assets/demo.png) -->
+![Campus Navigator ranking nearby classes with a walking route drawn to Engineering Tower and can-you-make-it badges](assets/demo.png)
 
 ## Overview
 
